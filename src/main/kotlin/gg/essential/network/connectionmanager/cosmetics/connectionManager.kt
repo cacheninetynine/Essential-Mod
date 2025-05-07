@@ -15,13 +15,16 @@ import gg.essential.Essential
 import gg.essential.connectionmanager.common.packet.Packet
 import gg.essential.connectionmanager.common.packet.cosmetic.ClientCosmeticCheckoutPacket
 import gg.essential.connectionmanager.common.packet.cosmetic.ServerCosmeticsUserUnlockedPacket
+import gg.essential.cosmetics.isAvailable
 import gg.essential.gui.common.sendCosmeticUnlockedToast
+import gg.essential.gui.elementa.state.v2.ObservedInstant
 import gg.essential.mod.Model
 import gg.essential.mod.cosmetics.settings.CosmeticProperty
 import gg.essential.network.connectionmanager.ConnectionManager
 import gg.essential.network.connectionmanager.handler.PacketHandler
 import gg.essential.network.cosmetics.Cosmetic
 import gg.essential.util.BuildInfo
+import java.time.Instant
 
 inline fun <reified T : Packet> ConnectionManager.registerPacketHandler(handler: PacketHandler<T>) =
     registerPacketHandler(T::class.java, handler)
@@ -79,8 +82,9 @@ fun ConnectionManager.unlockServerCosmetics(address: String) {
 }
 
 private inline fun <reified T : CosmeticProperty.RequiresUnlockAction.Data> ConnectionManager.unlock(filter: (T) -> Boolean) {
+    val now = ObservedInstant(Instant.now()) {}
     val toUnlock = cosmeticsManager.cosmetics.get()
-        .filter { it.id !in cosmeticsManager.unlockedCosmetics.get() && it.isAvailable() }
+        .filter { it.id !in cosmeticsManager.unlockedCosmetics.get() && it.isAvailable(now) }
         .filter { cosmetic -> cosmetic.properties<CosmeticProperty.RequiresUnlockAction>().mapNotNull { it.data as? T }.any(filter) }
 
     if (toUnlock.isEmpty()) return

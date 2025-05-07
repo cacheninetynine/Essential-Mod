@@ -103,6 +103,7 @@ class Wardrobe(
     private val cosmeticTypeConfiguration by lazy { CosmeticTypeConfiguration(state) }
     private val cosmeticBundleConfiguration by lazy { CosmeticBundleConfiguration(state) }
     private val featuredPageCollectionConfiguration by lazy { FeaturedPageCollectionConfiguration(state) }
+    private val implicitOwnershipConfiguration by lazy { ImplicitOwnershipConfiguration(state) }
 
     private val currentConfigurationComponent = stateBy {
         val diagnosticsFor = state.showingDiagnosticsFor()
@@ -119,6 +120,7 @@ class Wardrobe(
             state.currentlyEditingCosmeticType() != null -> cosmeticTypeConfiguration
             state.currentlyEditingCosmeticCategory() != null -> cosmeticCategoryConfiguration
             state.currentlyEditingFeaturedPageCollection() != null -> featuredPageCollectionConfiguration
+            state.currentlyEditingImplicitOwnership() != null -> implicitOwnershipConfiguration
             state.editingMenuOpen() -> configurationMenu
             else -> null
         }

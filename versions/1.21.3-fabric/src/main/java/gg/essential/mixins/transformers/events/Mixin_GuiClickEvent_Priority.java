@@ -25,7 +25,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = Mouse.class, priority = 500)
 public abstract class Mixin_GuiClickEvent_Priority  {
-    @Inject(method = "onMouseButton", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/Screen;mouseClicked(DDI)Z"), cancellable = true)
+    //#if FORGE
+    //$$ private static final String MOUSE_CLICKED = "Lnet/minecraftforge/client/event/ForgeEventFactoryClient;onScreenMouseClicked(Lnet/minecraft/client/gui/screens/Screen;DDI)Z";
+    //#else
+    private static final String MOUSE_CLICKED = "Lnet/minecraft/client/gui/screen/Screen;mouseClicked(DDI)Z";
+    //#endif
+
+    @Inject(method = "onMouseButton", at = @At(value = "INVOKE", target = MOUSE_CLICKED), cancellable = true)
     private void onMouseClicked(
         CallbackInfo ci,
         @Local(ordinal = 0) Screen screen,

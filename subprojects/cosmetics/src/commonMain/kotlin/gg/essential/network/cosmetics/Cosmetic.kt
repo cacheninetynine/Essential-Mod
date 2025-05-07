@@ -26,7 +26,6 @@ import gg.essential.mod.cosmetics.settings.CosmeticSetting
 import gg.essential.mod.cosmetics.settings.CosmeticSettings
 import gg.essential.mod.cosmetics.settings.variant
 import gg.essential.model.Side
-import gg.essential.model.util.now
 import gg.essential.model.util.Instant
 import gg.essential.model.util.InstantAsMillisSerializer
 import kotlinx.serialization.Serializable
@@ -110,14 +109,6 @@ data class Cosmetic(
 
     val defaultVariantSetting: CosmeticSetting.Variant?
         get() = defaultVariant?.let { CosmeticSetting.Variant(id, true, CosmeticSetting.Variant.Data(it.name)) }
-
-    fun isAvailable(): Boolean {
-        return availableAfter != null && isAvailableAt(now())
-    }
-
-    fun isAvailableAt(dateTime: Instant): Boolean {
-        return availableAfter != null && availableAfter < dateTime && (availableUntil == null || availableUntil > dateTime)
-    }
 
     fun getDisplayName(locale: String): String? {
         return displayNames[locale]

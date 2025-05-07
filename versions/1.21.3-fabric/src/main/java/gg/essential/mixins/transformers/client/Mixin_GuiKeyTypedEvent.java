@@ -24,6 +24,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = Keyboard.class, priority = 500)
 public class Mixin_GuiKeyTypedEvent {
+    //#if FORGE
+    //$$ private static final String KEY_PRESSED = "Lnet/minecraftforge/client/ForgeHooksClient;onScreenKeyPressed(Lnet/minecraft/client/gui/screens/Screen;III)Z";
+    //$$ private static final String CHAR_TYPED = "Lnet/minecraftforge/client/ForgeHooksClient;onScreenCharTyped(Lnet/minecraft/client/gui/screens/Screen;CI)Z";
+    //#else
+    private static final String KEY_PRESSED = "Lnet/minecraft/client/gui/screen/Screen;keyPressed(III)Z";
+    private static final String CHAR_TYPED = "Lnet/minecraft/client/gui/screen/Screen;charTyped(CI)Z";
+    //#endif
+
     @Unique
     private static void keyTyped(Screen screen, char typedChar, int keyCode, CallbackInfo ci) {
         GuiKeyTypedEvent event = new GuiKeyTypedEvent(screen, typedChar, keyCode);
@@ -33,15 +41,15 @@ public class Mixin_GuiKeyTypedEvent {
         }
     }
 
-    @Inject(method = "onKey", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/Screen;keyPressed(III)Z"), cancellable = true)
-    private void onKeyTyped(CallbackInfo ci, @Local Screen screen, @Local(ordinal = 0, argsOnly = true) int key) {
+    @Inject(method = "onKey", at = @At(value = "INVOKE", target = KEY_PRESSED), cancellable = true)
+    private void onKeyTyped(CallbackInfo ci, @Local(ordinal = 0) Screen screen, @Local(ordinal = 0, argsOnly = true) int key) {
         keyTyped(screen, '\0', key, ci);
     }
 
-    @Inject(method = "onChar", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/Screen;charTyped(CI)Z"), cancellable = true)
+    @Inject(method = "onChar", at = @At(value = "INVOKE", target = CHAR_TYPED), cancellable = true)
     private void onCharTyped(
         CallbackInfo ci,
-        @Local Screen screen,
+        @Local(ordinal = 0) Screen screen,
         @Local(ordinal = 0, argsOnly = true) int codePoint
     ) {
         if (Character.isBmpCodePoint(codePoint)) {

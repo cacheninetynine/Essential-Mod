@@ -12,11 +12,9 @@
 package gg.essential.util
 
 import gg.essential.universal.UMinecraft
-import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.IResource
 import net.minecraft.client.resources.IResourceManager
 import net.minecraft.client.resources.IResourceManagerReloadListener
-import net.minecraft.client.resources.SimpleReloadableResourceManager
 import net.minecraft.util.ResourceLocation
 import java.io.FileNotFoundException
 import java.util.concurrent.CopyOnWriteArrayList
@@ -32,13 +30,6 @@ typealias Listener = () -> Unit
 
 object ResourceManagerUtil : IResourceManagerReloadListener {
     private val listeners = CopyOnWriteArrayList<Listener>()
-
-    init {
-        UMinecraft.getMinecraft().executor.execute {
-            (Minecraft.getMinecraft().resourceManager as SimpleReloadableResourceManager)
-                .registerReloadListener(this)
-        }
-    }
 
     fun onResourceManagerReload(listener: Listener) {
         listeners.add(listener)

@@ -37,6 +37,8 @@ dependencies {
 
     // For NotificationBuilder
     compileOnly(project(":api:1.12.2-forge")) { isTransitive = false}
+
+    testImplementation(kotlin("test"))
 }
 
 kotlin.jvmToolchain(8)
@@ -45,4 +47,8 @@ tasks.compileKotlin {
     kotlinOptions {
         moduleName = "essential" + project.path.replace(':', '-').lowercase()
     }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

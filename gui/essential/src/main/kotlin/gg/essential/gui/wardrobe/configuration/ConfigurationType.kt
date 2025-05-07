@@ -22,6 +22,7 @@ import gg.essential.mod.Model
 import gg.essential.mod.cosmetics.CosmeticBundle
 import gg.essential.mod.cosmetics.CosmeticSlot
 import gg.essential.mod.cosmetics.CosmeticTier
+import gg.essential.mod.cosmetics.database.GitRepoCosmeticsDatabase
 import gg.essential.model.util.Instant
 import gg.essential.network.connectionmanager.cosmetics.*
 
@@ -169,6 +170,32 @@ class ConfigurationType<I, T> private constructor(
                             id,
                             null,
                             mapOf(),
+                        )
+                    }
+                }
+            }
+        )
+
+        val IMPLICIT_OWNERSHIPS = ConfigurationType(
+            displayPlural = "Implicit ownerships",
+            stateSupplier = { Triple(it.currentlyEditingImplicitOwnershipId, it.currentlyEditingImplicitOwnership, it.rawImplicitOwnerships) },
+            idAndNameMapper = { it.id to it.id },
+            updateHandler = { data, id, new -> data.updateImplicitOwnership(id, new) },
+            resetHandler = { data, id -> data.resetImplicitOwnership(id) },
+            createHandler = { modalManager, cosmeticsDataWithChanges, state ->
+                CancelableInputModal(modalManager, "Implicit ownership id").configure {
+                    titleText = "Create New Implicit Ownership"
+                    contentText = "Enter the id for the new Implicit Ownership. This should typically be the same as the cosmetic being unlocked."
+                }.apply {
+                    onPrimaryActionWithValue { id ->
+                        if (cosmeticsDataWithChanges.getImplicitOwnership(id) != null) {
+                            setError("That id already exists!")
+                            return@onPrimaryActionWithValue
+                        }
+                        cosmeticsDataWithChanges.registerImplicitOwnership(
+                            id,
+                            listOf(),
+                            GitRepoCosmeticsDatabase.ImplicitOwnershipCriterion.Everyone
                         )
                     }
                 }

@@ -26,10 +26,14 @@ public class Mixin_OverridePing {
 
     @Final
     @Shadow(aliases = {
+        //#if NEOFORGE
+        "val$data",
+        //#else
         "val$server",
         "field_3776",
         "val$p_147224_1_",
         "val$p_105460_",
+        //#endif
     })
     private ServerData server;
 

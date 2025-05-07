@@ -19,8 +19,10 @@ import gg.essential.cosmetics.CosmeticId
 import gg.essential.cosmetics.CosmeticTypeId
 import gg.essential.cosmetics.EquippedCosmetic
 import gg.essential.cosmetics.FeaturedPageCollectionId
+import gg.essential.cosmetics.ImplicitOwnershipId
 import gg.essential.cosmetics.diagnose
 import gg.essential.cosmetics.events.AnimationEventType
+import gg.essential.cosmetics.isAvailable
 import gg.essential.elementa.UIComponent
 import gg.essential.gui.common.onSetValueAndNow
 import gg.essential.gui.elementa.state.v2.ListState
@@ -39,7 +41,9 @@ import gg.essential.gui.elementa.state.v2.onChange
 import gg.essential.gui.elementa.state.v2.set
 import gg.essential.gui.elementa.state.v2.setAll
 import gg.essential.gui.elementa.state.v2.stateBy
+import gg.essential.gui.elementa.state.v2.stateUsingSystemTime
 import gg.essential.gui.elementa.state.v2.toListState
+import gg.essential.gui.elementa.state.v2.withSystemTime
 import gg.essential.gui.elementa.state.v2.zipWithEachElement
 import gg.essential.gui.state.Sale
 import gg.essential.gui.util.layoutSafePollingState
@@ -121,12 +125,14 @@ class WardrobeState(
 
     val rawFeaturedPageCollections = cosmeticsManager.cosmeticsData.featuredPageCollections
 
+    val rawImplicitOwnerships = cosmeticsManager.cosmeticsData.implicitOwnerships
+
     val rawCosmetics = cosmeticsManager.cosmeticsData.cosmetics
 
-    private val availableCosmetics = rawCosmetics.zip(unlockedCosmetics).map { (rawCosmetics, unlockedCosmetics) ->
-        rawCosmetics.filterTo(mutableListOf()) {
-            // TODO (low prio) `isAvailable` is not a pure function
-            (it.isAvailable() && "HIDDEN" !in it.tags) || it.id in unlockedCosmetics
+    private val availableCosmetics = stateUsingSystemTime { now ->
+        val unlockedCosmetics = unlockedCosmetics()
+        rawCosmetics().filter {
+            (it.isAvailable(now) && "HIDDEN" !in it.tags) || it.id in unlockedCosmetics
         }
     }.toListState()
 
@@ -181,14 +187,16 @@ class WardrobeState(
 
     val bundles = rawBundles
 
-    val featuredPageCollections = rawFeaturedPageCollections.filter { it.isAvailable() }
     // We currently support only one layout, so we pick one from the available ones
     // We use the raw list state, so that in the case we only have expired pages, we keep showing them until we get new ones
-    val featuredPageCollection = rawFeaturedPageCollections.map { pageCollections ->
-        pageCollections.sortedWith(
-            compareByDescending<FeaturedPageCollection> { it.isAvailable() } // Prioritize available ones (includes no availability)
-                .thenByDescending { it.availability != null } // Prioritize ones that do have an explicit range
-        ).firstOrNull()
+    val featuredPageCollection = memo {
+        val pagesWithAvailability = withSystemTime { now ->
+            rawFeaturedPageCollections().map { it to it.isAvailable(now) }
+        }
+        pagesWithAvailability.minWithOrNull(
+            compareByDescending<Pair<FeaturedPageCollection, Boolean>> { it.second } // Prioritize available ones (includes no availability)
+                .thenByDescending { it.first.availability != null } // Prioritize ones that do have an explicit range
+        )?.first
     }
 
     private val isOwnedOnly = filterSort.map { it == FilterSort.Owned }
@@ -492,12 +500,14 @@ class WardrobeState(
     val currentlyEditingCosmeticTypeId = mutableStateOf<CosmeticTypeId?>(null)
     val currentlyEditingCosmeticCategoryId = mutableStateOf<CosmeticCategoryId?>(null)
     val currentlyEditingFeaturedPageCollectionId = mutableStateOf<FeaturedPageCollectionId?>(null)
+    val currentlyEditingImplicitOwnershipId = mutableStateOf<ImplicitOwnershipId?>(null)
 
     val currentlyEditingCosmetic = stateBy { currentlyEditingCosmeticId()?.let { id -> cosmetics().find { it.id == id } } }
     val currentlyEditingCosmeticBundle = stateBy { currentlyEditingCosmeticBundleId()?.let { id -> bundles().find { it.id == id } } }
     val currentlyEditingCosmeticType = stateBy { currentlyEditingCosmeticTypeId()?.let { id -> types().find { it.id == id } } }
     val currentlyEditingCosmeticCategory = stateBy { currentlyEditingCosmeticCategoryId()?.let { id -> rawCategories().find { it.id == id } } }
     val currentlyEditingFeaturedPageCollection = stateBy { currentlyEditingFeaturedPageCollectionId()?.let { id -> rawFeaturedPageCollections().find { it.id == id } } }
+    val currentlyEditingImplicitOwnership = stateBy { currentlyEditingImplicitOwnershipId()?.let { id -> rawImplicitOwnerships().find { it.id == id } } }
 
     val showingDiagnosticsFor = mutableStateOf<String?>(null) // value is LOCAL_PATH of cosmetic
 

@@ -32,11 +32,14 @@ import gg.essential.event.client.InitializationEvent;
 import gg.essential.event.client.PostInitializationEvent;
 import gg.essential.event.client.PreInitializationEvent;
 import gg.essential.event.essential.TosAcceptedEvent;
+import gg.essential.event.render.RenderTickEvent;
+import gg.essential.forge.EssentialForgeMod;
 import gg.essential.gui.EssentialPalette;
 import gg.essential.gui.account.factory.*;
 import gg.essential.gui.api.ComponentFactory;
 import gg.essential.gui.common.UI3DPlayer;
 import gg.essential.gui.elementa.state.v2.MutableState;
+import gg.essential.gui.elementa.state.v2.StateScheduler;
 import gg.essential.gui.image.ResourceImageFactory;
 import gg.essential.gui.notification.Notifications;
 import gg.essential.handlers.OptionsScreenOverlay;
@@ -59,6 +62,7 @@ import me.kbrewster.eventbus.Subscribe;
 import me.kbrewster.eventbus.invokers.InvokerType;
 import me.kbrewster.eventbus.invokers.LMFInvoker;
 import me.kbrewster.eventbus.invokers.ReflectionInvoker;
+import net.minecraft.client.resources.SimpleReloadableResourceManager;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -71,6 +75,7 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -363,6 +368,18 @@ public class Essential implements EssentialAPI {
 
         EssentialChannelHandler.registerEssentialChannel();
 
+        // NeoForge enforces use of their event as of 1.21.4 (specifically 21.4.84-beta), so we need to use it when it's
+        // available
+        // See https://github.com/neoforged/NeoForge/pull/1915
+        if (EssentialForgeMod.USE_NEW_NEOFORGE_RESOURCE_EVENT) {
+            // See EssentialForgeMod.<init>
+            // Can't be here because it's too late.
+            // Can't be in our pre-init because it's too early (on some NeoForge versions).
+        } else {
+            ((SimpleReloadableResourceManager) UMinecraft.getMinecraft().getResourceManager())
+                .registerReloadListener(ResourceManagerUtil.INSTANCE);
+        }
+
         // Fetch update changelog now so it is preloaded for later use
         AutoUpdate.INSTANCE.getChangelog();
     }
@@ -429,6 +446,13 @@ public class Essential implements EssentialAPI {
             logger.error("Could not set up LMFInvoker: ", e);
             return new ReflectionInvoker();
         }
+    }
+
+    @Subscribe
+    public void preRenderTick(RenderTickEvent event) {
+        if (!event.isPre()) return;
+
+        StateScheduler.updateSystemTime(Instant.now());
     }
 
     /**

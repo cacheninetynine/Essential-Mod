@@ -27,13 +27,23 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(value = ArmorFeatureRenderer.class)
 public abstract class Mixin_DisableArmorRendering<S extends BipedEntityRenderState, M extends BipedEntityModel<S>, A extends BipedEntityModel<S>> {
+    //#if FORGE
+    //$$ private static final String RENDER_ARMOR = "Lnet/minecraft/client/renderer/entity/layers/HumanoidArmorLayer;renderArmorPiece(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/EquipmentSlot;ILnet/minecraft/client/model/HumanoidModel;Lnet/minecraft/client/renderer/entity/state/HumanoidRenderState;)V";
+    //#else
+    private static final String RENDER_ARMOR = "Lnet/minecraft/client/render/entity/feature/ArmorFeatureRenderer;renderArmor(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/EquipmentSlot;ILnet/minecraft/client/render/entity/model/BipedEntityModel;)V";
+    //#endif
+
     @WrapWithCondition(
         method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/client/render/entity/state/BipedEntityRenderState;FF)V",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/feature/ArmorFeatureRenderer;renderArmor(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/EquipmentSlot;ILnet/minecraft/client/render/entity/model/BipedEntityModel;)V")
+        at = @At(value = "INVOKE", target = RENDER_ARMOR)
     )
     private boolean essential$disableArmorRendering(
         ArmorFeatureRenderer<S, M, A> self, MatrixStack matrixStack, VertexConsumerProvider vertexConsumers, ItemStack stack, EquipmentSlot slot, int light, A armorModel,
+        //#if FORGE
+        //$$ S state
+        //#else
         @Local(argsOnly = true) S state
+        //#endif
     ) {
         if (!(state instanceof PlayerEntityRenderStateExt)) return true;
         CosmeticsRenderState cState = ((PlayerEntityRenderStateExt) state).essential$getCosmetics();

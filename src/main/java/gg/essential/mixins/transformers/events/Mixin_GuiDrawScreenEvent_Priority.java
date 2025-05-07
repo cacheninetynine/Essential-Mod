@@ -39,7 +39,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class Mixin_GuiDrawScreenEvent_Priority {
     private static final String RENDER = "updateCameraAndRender";
 
-    //#if FORGE
+    //#if NEOFORGE
+    //$$ private static final String FORGE_DRAW_SCREEN = "Lnet/neoforged/neoforge/client/ClientHooks;drawScreen(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/gui/GuiGraphics;IIF)V";
+    //#elseif FORGE
     //#if MC>=12000
     //$$ private static final String FORGE_DRAW_SCREEN = "Lnet/minecraftforge/client/ForgeHooksClient;drawScreen(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/gui/GuiGraphics;IIF)V";
     //#elseif MC>=11700
@@ -82,7 +84,7 @@ public abstract class Mixin_GuiDrawScreenEvent_Priority {
     // and `ModifyArgs` are broken on modern Forge in general: https://github.com/SpongePowered/Mixin/issues/584
 
     @Group(name = "capture_args", min = 1)
-    //#if FORGE
+    //#if FORGELIKE
     @WrapWithCondition(method = RENDER, at = @At(value = "INVOKE", target = FORGE_DRAW_SCREEN, remap = false))
     //#else
     //$$ @WrapWithCondition(method = RENDER, at = @At(value = "INVOKE", target = VANILLA_DRAW_SCREEN))
@@ -155,7 +157,7 @@ public abstract class Mixin_GuiDrawScreenEvent_Priority {
     }
 
     @Group(name = "post_event", min = 1)
-    //#if FORGE
+    //#if FORGELIKE
     @Inject(method = RENDER, at = @At(value = "INVOKE", target = FORGE_DRAW_SCREEN, remap = false, shift = At.Shift.AFTER))
     //#else
     //$$ @Inject(method = RENDER, at = @At(value = "INVOKE", target = VANILLA_DRAW_SCREEN, shift = At.Shift.AFTER))

@@ -147,7 +147,7 @@ public abstract class Mixin_ApplyPoseTransform_EntityOnShoulder {
         //$$ float netHeadYaw,
         //$$ float headPitch,
         //$$ // FIXME remap bug
-        //#if MC>=11700 && FORGE
+        //#if MC>=11700 && FORGELIKE
         //$$ net.minecraft.world.entity.EntityType<?> entityType,
         //#else
         //$$ net.minecraft.entity.EntityType<?> entityType,
@@ -198,7 +198,7 @@ public abstract class Mixin_ApplyPoseTransform_EntityOnShoulder {
     //$$     float netHeadYaw,
     //$$     float headPitch,
     //$$     // FIXME remap bug
-        //#if MC>=11700 && FORGE
+        //#if MC>=11700 && FORGELIKE
         //$$ net.minecraft.world.entity.EntityType<?> entityType,
         //#else
         //$$ net.minecraft.entity.EntityType<?> entityType,
@@ -224,7 +224,7 @@ public abstract class Mixin_ApplyPoseTransform_EntityOnShoulder {
     //$$     float netHeadYaw,
     //$$     float headPitch,
     //$$     // FIXME remap bug
-        //#if MC>=11700 && FORGE
+        //#if MC>=11700 && FORGELIKE
         //$$ net.minecraft.world.entity.EntityType<?> entityType,
         //#else
         //$$ net.minecraft.entity.EntityType<?> entityType,

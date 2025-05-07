@@ -11,6 +11,7 @@
  */
 package gg.essential.gui.wardrobe.components
 
+import gg.essential.cosmetics.isAvailable
 import gg.essential.elementa.components.GradientComponent
 import gg.essential.elementa.events.UIClickEvent
 import gg.essential.elementa.font.DefaultFonts
@@ -23,10 +24,10 @@ import gg.essential.gui.common.modal.OpenLinkModal
 import gg.essential.gui.common.outfitRenderPreview
 import gg.essential.gui.common.skinRenderPreview
 import gg.essential.gui.common.state
+import gg.essential.gui.elementa.state.v2.ObservedInstant
 import gg.essential.gui.elementa.state.v2.State
 import gg.essential.gui.elementa.state.v2.animateTransitions
 import gg.essential.gui.elementa.state.v2.combinators.and
-import gg.essential.gui.elementa.state.v2.combinators.isNotEmpty
 import gg.essential.gui.elementa.state.v2.combinators.map
 import gg.essential.gui.elementa.state.v2.combinators.not
 import gg.essential.gui.elementa.state.v2.combinators.or
@@ -38,7 +39,8 @@ import gg.essential.gui.elementa.state.v2.mutableStateOf
 import gg.essential.gui.elementa.state.v2.onChange
 import gg.essential.gui.elementa.state.v2.stateBy
 import gg.essential.gui.elementa.state.v2.stateOf
-import gg.essential.gui.elementa.state.v2.toV2
+import gg.essential.gui.elementa.state.v2.systemTime
+import gg.essential.gui.elementa.state.v2.withSystemTime
 import gg.essential.gui.image.ImageFactory
 import gg.essential.gui.layoutdsl.Alignment
 import gg.essential.gui.layoutdsl.Arrangement
@@ -78,8 +80,6 @@ import gg.essential.gui.layoutdsl.whenTrue
 import gg.essential.gui.layoutdsl.width
 import gg.essential.gui.layoutdsl.widthAspect
 import gg.essential.gui.util.Tag
-import gg.essential.gui.util.hoverScope
-import gg.essential.gui.util.pollingState
 import gg.essential.gui.wardrobe.EmoteWheelPage
 import gg.essential.gui.wardrobe.Item
 import gg.essential.gui.wardrobe.WardrobeCategory
@@ -99,11 +99,10 @@ import gg.essential.util.UuidNameLookup
 import gg.essential.gui.util.hoverScopeV2
 import gg.essential.util.onRightClick
 import gg.essential.util.thenAcceptOnMainThread
-import gg.essential.util.toCosmeticOptionTime
+import gg.essential.util.toShortString
 import gg.essential.vigilance.utils.onLeftClick
 import java.awt.Color
 import java.net.URI
-import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 data class CosmeticItemTag(val item: Item) : Tag
@@ -347,9 +346,9 @@ private fun LayoutScope.availabilityIcons(item: Item, state: WardrobeState) {
 
     val isAvailable = when (item) {
         is Item.Bundle -> state.bundles.map { it.any { bundle -> bundle.id == item.id } }
-        is Item.CosmeticOrEmote -> state.rawCosmetics.map { cosmetic ->
+        is Item.CosmeticOrEmote -> memo {
             // Same check that availableCosmetics uses in WardrobeState, but ignoring ownership
-            cosmetic.any { (it.isAvailable() && "HIDDEN" !in it.tags) && it.id == item.id }
+            state.rawCosmetics().any { it.id == item.id && (it.isAvailable(systemTime()) && "HIDDEN" !in it.tags) }
         }
 
         else -> return
@@ -551,16 +550,9 @@ private fun LayoutScope.cosmeticTimer(item: Item, owned: State<Boolean>, wardrob
 
     bind(availableUntilState) { availableUntil ->
         if (availableUntil == null) return@bind
-        val saleTime = containerDontUseThisUnlessYouReallyHaveTo.pollingState {
-            if (item.shouldShowTimer(wardrobeState)) {
-                availableUntil.toCosmeticOptionTime()
-            } else {
-                ""
-            }
-        }.toV2()
-        if_(saleTime.isNotEmpty()) {
+        if_({ item.shouldShowTimer(wardrobeState, systemTime()) }) {
             box(Modifier.height(13f).widthAspect(1f).color(EssentialPalette.RED).hoverTooltip({
-                val time = saleTime()
+                val time = withSystemTime { it.until(availableUntil).toShortString() }
                 if (time.equals("Expired", true)) {
                     time
                 } else {
@@ -883,10 +875,10 @@ fun Modifier.itemSize(width: Int, height: Int) =
     width(cosmeticWidth * width + (width - 1) * cosmeticXSpacing)
         .height((cosmeticWidth + cosmeticTextHeight) * height + (height - 1) * cosmeticYSpacing)
 
-private fun Item.shouldShowTimer(wardrobeState: WardrobeState): Boolean {
-    return when (this) {
+private fun Item.shouldShowTimer(wardrobeState: WardrobeState, now: ObservedInstant): Boolean {
+    return now.isAfter(when (this) {
         is Item.CosmeticOrEmote -> this.cosmetic.showTimerAfter
         is Item.Bundle -> wardrobeState.featuredPageCollection.getUntracked()?.availability?.showTimerAfter
         else -> null
-    }?.isBefore(Instant.now()) ?: true
+    } ?: return true)
 }

@@ -177,14 +177,6 @@ public class Cosmetic implements DisplayNameHolder, PriceHolder, SkinLayersHolde
         return categories;
     }
 
-    public boolean isAvailable() {
-        return this.availableAfter != null && this.isAvailableAt(new DateTime());
-    }
-
-    public boolean isAvailableAt(final @NotNull DateTime dateTime) {
-        return ((this.availableAfter != null && this.availableAfter.before(dateTime)) && (this.availableUntil == null || this.availableUntil.after(dateTime)));
-    }
-
     public @Nullable Integer getDefaultSortWeight() {
         return this.defaultSortWeight;
     }

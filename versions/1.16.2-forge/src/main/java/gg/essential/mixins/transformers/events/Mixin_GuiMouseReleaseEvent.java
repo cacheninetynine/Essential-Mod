@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class Mixin_GuiMouseReleaseEvent {
 
     @Inject(method = { "lambda$mouseButtonCallback$1", "func_198027_a", "lambda$onPress$1", "method_1605", "m_168078_" }, at = @At("HEAD"), cancellable = true, remap = false)
-    //#if MC>=11700 && FORGE==0
+    //#if MC>=11700 && FORGE==0 || MC>=12006
     //$$ static
     //#endif
     private void onMouseReleased(

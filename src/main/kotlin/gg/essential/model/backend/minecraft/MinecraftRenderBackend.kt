@@ -43,8 +43,10 @@ import gg.essential.model.util.UVertexConsumer as CVertexConsumer
 //$$ import com.mojang.blaze3d.pipeline.RenderPipeline
 //$$ import com.mojang.blaze3d.vertex.VertexFormat
 //$$ import gg.essential.util.ModLoaderUtil
+//#if FORGE==0
 //$$ import net.irisshaders.iris.api.v0.IrisApi
 //$$ import net.irisshaders.iris.api.v0.IrisProgram
+//#endif
 //$$ import net.minecraft.client.gl.Framebuffer
 //$$ import net.minecraft.client.gl.RenderPipelines
 //$$ import net.minecraft.client.render.BuiltBuffer

@@ -19,6 +19,8 @@ import gg.essential.cosmetics.CosmeticId
 import gg.essential.cosmetics.CosmeticTypeId
 import gg.essential.cosmetics.FeaturedPageCollectionId
 import gg.essential.cosmetics.FeaturedPageWidth
+import gg.essential.cosmetics.ImplicitOwnership
+import gg.essential.cosmetics.ImplicitOwnershipId
 import gg.essential.mod.EssentialAsset
 import gg.essential.mod.cosmetics.CosmeticAssets
 import gg.essential.mod.cosmetics.CosmeticBundle
@@ -37,12 +39,15 @@ import gg.essential.model.util.base64Decode
 import gg.essential.model.util.instant
 import gg.essential.model.util.now
 import gg.essential.network.cosmetics.Cosmetic
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.UseSerializers
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.modules.plus
 
 /**
@@ -89,6 +94,7 @@ class GitRepoCosmeticsDatabase(
     private val types = mutableMapOf<CosmeticTypeId, CosmeticType>()
     private val bundles = mutableMapOf<CosmeticBundleId, CosmeticBundle>()
     private val featuredPageCollections = mutableMapOf<FeaturedPageCollectionId, FeaturedPageCollection>()
+    private val implicitOwnerships = mutableMapOf<ImplicitOwnershipId, CosmeticImplicitOwnership>()
     private val cosmetics = mutableMapOf<CosmeticId, Cosmetic>()
     private val lazyCosmetics = mutableMapOf<CosmeticId, Path>()
 
@@ -96,6 +102,7 @@ class GitRepoCosmeticsDatabase(
     private val typeByPath = mutableMapOf<Path, CosmeticTypeId>()
     private val bundleByPath = mutableMapOf<Path, CosmeticBundleId>()
     private val featuredPageCollectionByPath = mutableMapOf<Path, FeaturedPageCollectionId>()
+    private val implicitOwnershipsByPath = mutableMapOf<Path, ImplicitOwnershipId>()
     private val cosmeticByPath = mutableMapOf<Path, CosmeticId>()
 
     val loadedCategories: Map<CosmeticCategoryId, CosmeticCategory>
@@ -106,6 +113,8 @@ class GitRepoCosmeticsDatabase(
         get() = bundles
     val loadedFeaturedPageCollections: Map<FeaturedPageCollectionId, FeaturedPageCollection>
         get() = featuredPageCollections
+    val loadedImplicitOwnerships: Map<ImplicitOwnershipId, CosmeticImplicitOwnership>
+        get() = implicitOwnerships
     val loadedCosmetics: Map<CosmeticId, Cosmetic>
         get() = cosmetics
 
@@ -126,6 +135,9 @@ class GitRepoCosmeticsDatabase(
             }
             if (file.str.endsWith(".featured-page-metadata.json")) {
                 fileObservers.getOrPut(file, ::Observers).featuredPageCollections.add(file)
+            }
+            if (file.str.endsWith(".implicit-ownership.json")) {
+                fileObservers.getOrPut(file, ::Observers).implicitOwnerships.add(file)
             }
             if (file.str.endsWith(".cosmetic-metadata.json")) {
                 if (lazy && fileObservers[file]?.cosmetics?.contains(file) != true) {
@@ -158,6 +170,7 @@ class GitRepoCosmeticsDatabase(
         val cosmeticsChanged = mutableSetOf<CosmeticId>()
         val bundlesChanged = mutableSetOf<CosmeticBundleId>()
         val featuredPagesCollectionsChanged = mutableSetOf<FeaturedPageCollectionId>()
+        val implicitOwnershipsChanged = mutableSetOf<ImplicitOwnershipId>()
 
         suspend fun updateObservers(observers: Observers) {
             observers.categories.toList().mapNotNullTo(categoriesChanged) { path ->
@@ -229,6 +242,23 @@ class GitRepoCosmeticsDatabase(
                 }
             }
 
+            observers.implicitOwnerships.toList().mapNotNullTo(implicitOwnershipsChanged) { path ->
+                val implicitOwnership = tryLoadImplicitOwnership(path)
+                if (implicitOwnership != null) {
+                    implicitOwnerships[implicitOwnership.id] = implicitOwnership
+                    implicitOwnershipsByPath[path] = implicitOwnership.id
+                    implicitOwnership.id
+                } else {
+                    val width = implicitOwnershipsByPath.remove(path)
+                    if (width != null) {
+                        implicitOwnerships.remove(width)
+                        width
+                    } else {
+                        null
+                    }
+                }
+            }
+
             observers.cosmetics.toList().flatMapTo(cosmeticsChanged) { path ->
                 val cosmetic = tryLoadCosmetic(path)
                 if (cosmetic != null) {
@@ -268,6 +298,7 @@ class GitRepoCosmeticsDatabase(
             cosmeticsChanged,
             bundlesChanged,
             featuredPagesCollectionsChanged,
+            implicitOwnershipsChanged,
         )
     }
 
@@ -327,6 +358,17 @@ class GitRepoCosmeticsDatabase(
             fileAccess.loadFeaturedPageCollection(metadataFile)
         } catch (e: Exception) {
             Exception("Failed to load featured page collection at $metadataFile", e).printStackTrace()
+            null
+        }
+    }
+
+    private suspend fun tryLoadImplicitOwnership(metadataFile: Path): CosmeticImplicitOwnership? {
+        if (metadataFile !in files) return null
+        return try {
+            val fileAccess = FileAccessImpl(metadataFile) { implicitOwnerships }
+            fileAccess.loadImplicitOwnership(metadataFile)
+        } catch (e: Exception) {
+            Exception("Failed to load implicit ownership at $metadataFile", e).printStackTrace()
             null
         }
     }
@@ -539,6 +581,38 @@ class GitRepoCosmeticsDatabase(
     }
 
     /**
+     * Computes the file changes necessary to update the implicit ownership with [id] to match the given [implicitOwnership] data.
+     * Returns a map of paths relative to the repository root with associated file data (or null if the file is to be
+     * deleted).
+     *
+     * If no such implicit ownership exists, a new one is created.
+     * If the passed implicit ownership data is `null`, the existing implicit ownership with [id] (if any) will be deleted.
+     *
+     * Note that does by itself not apply these changes. It is the responsibility of the caller to apply the returned
+     * values to the real file system and to call [updateFiles] if they wish these changes to be reflected in the state
+     * of this [GitRepoCosmeticsDatabase].
+     */
+    suspend fun computeChanges(id: ImplicitOwnershipId, implicitOwnership: CosmeticImplicitOwnership?): Map<String, ByteArray?> {
+        val existingMetadataFile = implicitOwnershipsByPath.entries.firstNotNullOfOrNull { if (it.value == id) it.key else null }
+        val metadataFile = when {
+            existingMetadataFile != null -> existingMetadataFile
+            implicitOwnership != null -> Path.of("implicit_ownership/$id.implicit-ownership.json")
+            else -> return emptyMap()
+        }
+
+        val original = files[metadataFile]
+            ?.let { json.decodeFromString<ImplicitOwnership>(it().decodeToString()) }
+
+        val changes = mutableMapOf<Path, ByteArray?>()
+
+        if (implicitOwnership != original) {
+            changes[metadataFile] = implicitOwnership?.let { json.encodeToString(it).encodeToByteArray() }
+        }
+
+        return changes.mapKeys { it.key.str }
+    }
+
+    /**
      * Computes the file changes necessary to update the cosmetic with [id] to match the given [cosmetic] data.
      * Returns a map of paths relative to the repository root with associated file data (or null if the file is to be
      * deleted).
@@ -698,6 +772,11 @@ class GitRepoCosmeticsDatabase(
 
     override suspend fun getFeaturedPageCollections(): List<FeaturedPageCollection> = featuredPageCollections.values.toList()
 
+
+    override suspend fun getImplicitOwnership(id: ImplicitOwnershipId): CosmeticImplicitOwnership? = implicitOwnerships[id]
+
+    override suspend fun getImplicitOwnerships(): List<CosmeticImplicitOwnership> = implicitOwnerships.values.toList()
+
     override suspend fun getCosmetic(id: CosmeticId): Cosmetic? {
         return cosmetics[id] ?: lazyCosmetics[id]?.let { path ->
             val cosmetic = tryLoadCosmetic(path) ?: return@let null
@@ -724,6 +803,7 @@ class GitRepoCosmeticsDatabase(
         val cosmetics: Set<CosmeticId>,
         val bundles: Set<CosmeticBundleId>,
         val featuredPageCollections: Set<FeaturedPageCollectionId>,
+        val implicitOwnerships: Set<ImplicitOwnershipId>,
     ) {
         operator fun plus(other: Changes) =
             Changes(
@@ -732,10 +812,12 @@ class GitRepoCosmeticsDatabase(
                 cosmetics + other.cosmetics,
                 (bundles + other.bundles), // Remove () when removing flag
                 (featuredPageCollections + other.featuredPageCollections), // Remove () when removing flag
+                implicitOwnerships + other.implicitOwnerships,
             )
 
         companion object {
             val Empty = Changes(
+                emptySet(),
                 emptySet(),
                 emptySet(),
                 emptySet(),
@@ -751,8 +833,9 @@ class GitRepoCosmeticsDatabase(
         val cosmetics = mutableSetOf<Path>()
         val bundles = mutableSetOf<Path>()
         val featuredPageCollections = mutableSetOf<Path>()
+        val implicitOwnerships = mutableSetOf<Path>()
 
-        fun isEmpty() = categories.isEmpty() && types.isEmpty() && cosmetics.isEmpty() && bundles.isEmpty() && featuredPageCollections.isEmpty()
+        fun isEmpty() = categories.isEmpty() && types.isEmpty() && cosmetics.isEmpty() && bundles.isEmpty() && featuredPageCollections.isEmpty() && implicitOwnerships.isEmpty()
     }
 
     private inner class FileAccessImpl(
@@ -932,6 +1015,37 @@ class GitRepoCosmeticsDatabase(
         @SerialName("asset.thumbnail")
         val thumbnail: String? = null,
     )
+
+    @Serializable
+    data class CosmeticImplicitOwnership(
+        val id: String,
+        val cosmetics: List<String>,
+        val criterion: ImplicitOwnershipCriterion,
+    )
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @JsonClassDiscriminator("type")
+    @Serializable
+    sealed interface ImplicitOwnershipCriterion {
+        val type: String
+
+        @Serializable
+        @SerialName("EVERYONE")
+        data object Everyone : ImplicitOwnershipCriterion {
+            @Transient
+            override val type: String = "EVERYONE"
+        }
+
+        @Serializable
+        @SerialName("OWNED_COSMETIC")
+        data class OwnedCosmetic(
+            val cosmetic: String,
+        ) : ImplicitOwnershipCriterion {
+            @Transient
+            override val type: String = "OWNED_COSMETIC"
+        }
+    }
+
 }
 
 typealias AssetBuilder = suspend (path: String, read: suspend () -> ByteArray) -> EssentialAsset
@@ -1063,6 +1177,11 @@ private suspend fun FileAccess.loadFeaturedPageCollection(metadataFile: Path): F
         metadata.availability?.let { FeaturedPageCollection.Availability(it.after, it.until, it.showTimerAfter) },
         metadata.pages
     )
+}
+
+private suspend fun FileAccess.loadImplicitOwnership(metadataFile: Path): ImplicitOwnership {
+    val metadataJson = file(metadataFile) ?: throw NoSuchElementException(metadataFile.toString())
+    return json.decodeFromString<ImplicitOwnership>(metadataJson().decodeToString())
 }
 
 private suspend fun FileAccess.loadCosmetic(metadataFile: Path, assetBuilder: AssetBuilder, getType: (id: CosmeticTypeId) -> CosmeticType?): Cosmetic {

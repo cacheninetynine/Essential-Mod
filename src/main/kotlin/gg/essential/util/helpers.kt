@@ -107,6 +107,25 @@ fun findCodeSource(javaClass: Class<*>): CodeSource? {
     //$$ }
     //#endif
 
+    // With ModLauncher (LexForge edition) + JarJar 0.3 (used by Forge 1.20.6+), nested jars are are wrapped in both a
+    // `jij` and a `union` pseudo file system, we need to unwrap the outer one and turn the inner one from a `jij` to a
+    // regular `jar` to get at the jar file instead of its content, however the outer one file system has mangled the
+    // inner path, and isn't accessible directly because it's not exported, so we need to do some string manipulation
+    // and pray.
+    // This probably won't work for deeply nested jars, but we haven't yet run into one we'd need.
+    // union:/jij:file:///home/user/.minecraft/instances/1.20.6-forge/mods/kotlin-for-forge-5.7.0.jar_/META-INF/jarjar/kotlin-stdlib-2.1.0.jar%2313!/
+    if (url.protocol == "union" && url.toURI().path.startsWith("/jij:")) {
+        var str = url.toURI().path
+        // Remove the union and jij wrapping
+        str = str.substring(1 until str.lastIndexOf("#"))
+        // Restore the `!` which the union file system replaced with `_`
+        str = str.replace(".jar_/META-INF/jarjar/", ".jar!/META-INF/jarjar/")
+        // Turn `jij` into regular `jar` path
+        str = "jar:" + str.removePrefix("jij:")
+        // Pray this works out
+        url = URI(str).toURL()
+    }
+
     // With ModLauncher (1.17+ edition), mod jars are wrapped into a "union" pseudo file system, we need to unwrap
     // them to get our actual jar file.
     // union:/home/user/.minecraft/instances/1.17.1%20Forge/mods/Essential%201.17.1-forge-master-SNAPSHOT.jar%2359!
@@ -116,6 +135,13 @@ fun findCodeSource(javaClass: Class<*>): CodeSource? {
         val originalScheme = "file" // I can't see any way to get hold of this, so let's just assume "file" for now
         val originalPath = unionPath.substring(0 until unionPath.lastIndexOf("#"))
         url = URI(originalScheme, null, originalPath, null).toURL()
+        // With NeoForge's JarInJar, these can also be nested (although the protocol is only given once):
+        // Raw:   union:/home/user/.minecraft/minecraft/mods/kotlin-for-forge-5.7.0.jar%23186_/META-INF/jarjar/kotlin-stdlib-2.1.0.jar%23203!/
+        // By now: file:/home/user/.minecraft/minecraft/mods/kotlin-for-forge-5.7.0.jar%23186_/META-INF/jarjar/kotlin-stdlib-2.1.0.jar
+        val nestedRegex = Regex("\\.jar%23\\d+_/META-INF/jarjar/")
+        if (url.path.contains(nestedRegex)) {
+            url = URL("jar:" + url.toString().replace(nestedRegex, ".jar!/META-INF/jarjar/"))
+        }
     }
 
     // With ModLauncher (LexForge flavour, used by Forge 1.20.4+), mod jars are no longer wrapped in a "union"

@@ -44,6 +44,11 @@ import net.minecraftforge.fml.common.Loader
 //#endif
 //#endif
 
+//#if NEOFORGE
+//$$ import net.neoforged.fml.loading.LoadingModList
+//$$ import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion
+//#endif
+
 import java.io.IOException
 import java.nio.file.FileSystems
 import java.nio.file.Files
@@ -128,7 +133,9 @@ object ModLoaderUtil {
     )
 
     private fun getPlatform(): ClientModsAnnouncePacket.Platform {
-        //#if FORGE
+        //#if NEOFORGE
+        //$$ return ClientModsAnnouncePacket.Platform.NEOFORGE
+        //#elseif FORGE
         return ClientModsAnnouncePacket.Platform.FORGE
         //#elseif FABRIC
         //$$ return ClientModsAnnouncePacket.Platform.FABRIC
@@ -355,7 +362,11 @@ object ModLoaderUtil {
         //$$     return "error:${loader.javaClass.name}-${e.message}"
         //$$ }
         //#elseif MC>=11400
+        //#if NEOFORGE
+        //$$ return NeoForgeVersion.getVersion()
+        //#else
         //$$ return ForgeVersion.getVersion()
+        //#endif
         //#else
         return ForgeVersion.getBuildVersion().toString()
         //#endif

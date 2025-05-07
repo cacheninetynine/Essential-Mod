@@ -53,8 +53,19 @@ import net.minecraft.world.World;
 @Mixin(ParticleManager.class)
 public abstract class Mixin_RenderParticleSystemOfClientWorld {
     // Forge overloads this method with an additional argument in 1.16+
-    //#if FORGE && MC>=11600
-    //#if MC>=11700
+    // NeoForge adds another one in 1.21+
+    //#if NEOFORGE && MC>=12100
+    //#if MC>=12104
+    //$$ private static final String RENDER_PARTICLES = "render(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/MultiBufferSource$BufferSource;Lnet/minecraft/client/renderer/culling/Frustum;Ljava/util/function/Predicate;)V";
+    //#else
+    //$$ private static final String RENDER_PARTICLES = "render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;Ljava/util/function/Predicate;)V";
+    //#endif
+    //#elseif FORGELIKE && MC>=11600
+    //#if MC>=12104
+    //$$ private static final String RENDER_PARTICLES = "render(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/MultiBufferSource$BufferSource;Lnet/minecraft/client/renderer/culling/Frustum;)V";
+    //#elseif MC>=12006
+    //$$ private static final String RENDER_PARTICLES = "render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V";
+    //#elseif MC>=11700
     //$$ private static final String RENDER_PARTICLES = "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V";
     //#else
     //$$ private static final String RENDER_PARTICLES = "renderParticles(Lcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer$Impl;Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/renderer/ActiveRenderInfo;FLnet/minecraft/client/renderer/culling/ClippingHelper;)V";
@@ -110,11 +121,14 @@ public abstract class Mixin_RenderParticleSystemOfClientWorld {
         //#if MC>=12104
         //$$ VertexConsumerProvider.Immediate bufferIn,
         //#endif
-        //#if FORGE
+        //#if FORGELIKE
         //#if MC>=11700
         //$$ net.minecraft.client.renderer.culling.Frustum frustum,
         //#else
         //$$ net.minecraft.client.renderer.culling.ClippingHelper clippingHelper,
+        //#endif
+        //#if NEOFORGE && MC>=12100
+        //$$ java.util.function.Predicate renderTypePredicate,
         //#endif
         //#endif
         //#else
@@ -252,6 +266,19 @@ public abstract class Mixin_RenderParticleSystemOfClientWorld {
             //#endif
     //$$         ci
     //$$     );
+    //$$ }
+    //#endif
+
+    // NeoForge's additional argument on 1.21+ also exists on later versions of 1.20.6, so we need to support both there
+    //#if MC==12006 && NEOFORGE
+    //$$ @Group(name = "render_particles", min = 1, max = 1)
+    //$$ @org.spongepowered.asm.mixin.Dynamic("Extra argument added by in NeoForge 20.6.75 (#977) (7c6475b28)")
+    //$$ @Inject(
+    //$$     method = "render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;Ljava/util/function/Predicate;)V",
+    //$$    at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;depthMask(Z)V")
+    //$$ )
+    //$$ private void essential$renderParticles(LightTexture lightTexture, Camera camera, float partialTicks, net.minecraft.client.renderer.culling.Frustum frustum, java.util.function.Predicate renderTypePredicate, CallbackInfo ci) {
+    //$$     essential$renderParticles(lightTexture, camera, partialTicks, frustum, ci);
     //$$ }
     //#endif
 }

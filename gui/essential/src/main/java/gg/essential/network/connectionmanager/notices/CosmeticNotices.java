@@ -12,16 +12,20 @@
 package gg.essential.network.connectionmanager.notices;
 
 import gg.essential.gui.elementa.state.v2.MutableState;
+import gg.essential.gui.elementa.state.v2.ObservedInstant;
 import gg.essential.gui.elementa.state.v2.State;
 import gg.essential.network.connectionmanager.cosmetics.CosmeticsData;
 import gg.essential.network.cosmetics.Cosmetic;
 import gg.essential.notices.NoticeType;
 import gg.essential.notices.model.Notice;
+import kotlin.Unit;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static gg.essential.cosmetics.ExtensionsKt.isAvailable;
 import static gg.essential.gui.elementa.state.v2.StateKt.mutableStateOf;
 
 public class CosmeticNotices implements NoticeListener {
@@ -77,7 +81,8 @@ public class CosmeticNotices implements NoticeListener {
                         return false;
                     }
 
-                    return cosmetic.isAvailable();
+                    // TODO make this whole class properly State-based
+                    return isAvailable(cosmetic, new ObservedInstant(Instant.now(), __ -> Unit.INSTANCE));
                 })
         );
     }

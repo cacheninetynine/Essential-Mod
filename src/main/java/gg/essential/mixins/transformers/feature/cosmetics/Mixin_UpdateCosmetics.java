@@ -28,11 +28,19 @@ import static gg.essential.cosmetics.events.CosmeticEventDispatcher.dispatchEven
 
 @Mixin(RenderGlobal.class)
 public abstract class Mixin_UpdateCosmetics {
+    //#if NEOFORGE
+    //$$ private static final String MAIN_PASS_LAMBDA = "lambda$addMainPass$2";
+    //#elseif FORGE
+    //$$ private static final String MAIN_PASS_LAMBDA = "lambda$addMainPass$1";
+    //#else
+    private static final String MAIN_PASS_LAMBDA = "method_62214";
+    //#endif
+
     @Shadow
     private WorldClient world;
 
     //#if MC>=12102
-    //$$ @Inject(method = "method_62214", at = @At(value = "CONSTANT", args = "stringValue=entities"))
+    //$$ @Inject(method = MAIN_PASS_LAMBDA, at = @At(value = "CONSTANT", args = "stringValue=entities"))
     //#elseif MC>=11400
     //$$ @Inject(method = "updateCameraAndRender", at = @At(value = "CONSTANT", args = "stringValue=entities"))
     //#else
@@ -60,7 +68,7 @@ public abstract class Mixin_UpdateCosmetics {
     }
 
     //#if MC>=12102
-    //$$ @Inject(method = "method_62214", at = @At(value = "CONSTANT", args = "stringValue=blockentities"))
+    //$$ @Inject(method = MAIN_PASS_LAMBDA, at = @At(value = "CONSTANT", args = "stringValue=blockentities"))
     //#elseif MC>=11400
     //$$ @Inject(method = "updateCameraAndRender", at = @At(value = "CONSTANT", args = "stringValue=blockentities"))
     //#else

@@ -27,8 +27,11 @@ import gg.essential.gui.elementa.state.v2.combinators.not
 import gg.essential.gui.elementa.state.v2.combinators.or
 import gg.essential.gui.elementa.state.v2.combinators.zip
 import gg.essential.gui.elementa.state.v2.flatten
+import gg.essential.gui.elementa.state.v2.memo
 import gg.essential.gui.elementa.state.v2.stateOf
+import gg.essential.gui.elementa.state.v2.systemTime
 import gg.essential.gui.elementa.state.v2.toV1
+import gg.essential.gui.elementa.state.v2.withSystemTime
 import gg.essential.gui.wardrobe.Wardrobe
 import gg.essential.gui.wardrobe.WardrobeCategory
 import gg.essential.handlers.PauseMenuDisplay
@@ -36,13 +39,10 @@ import gg.essential.handlers.PauseMenuDisplay.Companion.window
 import gg.essential.util.GuiUtil
 import gg.essential.util.bindEssentialTooltip
 import gg.essential.gui.util.hoveredState
-import gg.essential.gui.util.pollingStateV2
 import gg.essential.util.GuiEssentialPlatform.Companion.platform
 import gg.essential.util.USession
 import gg.essential.util.toShortString
 import gg.essential.vigilance.utils.onLeftClick
-import java.time.Duration
-import java.time.Instant
 import gg.essential.gui.elementa.state.v2.State as StateV2
 
 class LeftSideBar(
@@ -62,16 +62,17 @@ class LeftSideBar(
     // As a field so that there is a strong reference to it. Otherwise, it will be GC'd
     private val allSales = connectionManager.saleNoticeManager.saleState
 
-    private val currentSale = pollingStateV2 {
+    private val currentSale = memo {
         // When the menu is collapsed, the display banner only shows for real sales
         // and does not display the 'fake' sales used as messages unless they privide
         // a compact name, so we must exclude them to avoid the banner cycling between 'sale' and nothing.
-        val sales = allSales.get().filter { (!collapsed.get() || it.compactName != null) || it.discountPercent > 0 }.toList()
-        return@pollingStateV2 if (sales.isEmpty()) {
+        val sales = allSales().filter { (!collapsed() || it.compactName != null) || it.discountPercent > 0 }.toList()
+        if (sales.isEmpty()) {
             null
         } else {
-            val cycleTime = SALE_BANNER_CYCLE_TIME_MS * sales.size
-            sales[(System.currentTimeMillis() % cycleTime / SALE_BANNER_CYCLE_TIME_MS).toInt()]
+            val nowMs = systemTime().toEpochMillis()
+            val index = (nowMs / SALE_BANNER_CYCLE_TIME_MS).getValue() % sales.size
+            sales[index.toInt()]
         }
     }
     private val isSale = currentSale.map { it != null }
@@ -163,10 +164,12 @@ class LeftSideBar(
         val saleName = currentSale.map {
             (it?.name?.uppercase() ?: "")
         }
-        val saleExpires = pollingStateV2 {
-            val sale = currentSale.get() ?: return@pollingStateV2 ""
-            val timeLeft = Duration.between(Instant.now(), sale.expiration)
-            "${timeLeft.toShortString(false)} left"
+        val saleExpires = memo {
+            val sale = currentSale() ?: return@memo ""
+            withSystemTime { now ->
+                val timeLeft = now.until(sale.expiration)
+                "${timeLeft.toShortString(false)} left"
+            }
         }
 
         val saleLines = currentSale.map {

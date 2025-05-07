@@ -225,6 +225,13 @@ tasks.processResources {
     filesMatching("assets/essential/version.txt") {
         expand(mapOf("version" to project.version))
     }
+    if (platform.isNeoForge && platform.mcVersion < 12005) {
+        // NeoForge still uses the old mods.toml name until 1.20.5
+        filesMatching("META-INF/neoforge.mods.toml") {
+            name = "mods.toml"
+        }
+        exclude("META-INF/mods.toml")
+    }
 }
 
 tasks.test {

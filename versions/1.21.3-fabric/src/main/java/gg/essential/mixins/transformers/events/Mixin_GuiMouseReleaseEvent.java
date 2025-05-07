@@ -23,7 +23,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Mouse.class)
 public class Mixin_GuiMouseReleaseEvent {
-    @Inject(method = "onMouseButton", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/Screen;mouseReleased(DDI)Z"))
+    //#if FORGE
+    //$$ private static final String MOUSE_RELEASED = "Lnet/minecraftforge/client/event/ForgeEventFactoryClient;onScreenMouseReleased(Lnet/minecraft/client/gui/screens/Screen;DDI)Z";
+    //#else
+    private static final String MOUSE_RELEASED = "Lnet/minecraft/client/gui/screen/Screen;mouseReleased(DDI)Z";
+    //#endif
+
+    @Inject(method = "onMouseButton", at = @At(value = "INVOKE", target = MOUSE_RELEASED))
     private void onMouseClicked(CallbackInfo ci, @Local(ordinal = 0) Screen screen) {
         Essential.EVENT_BUS.post(new GuiMouseReleaseEvent(screen));
     }
